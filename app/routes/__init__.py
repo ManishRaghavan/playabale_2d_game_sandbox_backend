@@ -1,0 +1,1 @@
+from .generate_chat_route import generate_chat_health
