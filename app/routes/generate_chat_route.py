@@ -31,8 +31,8 @@ async def generate_websocket_chat(websocket: WebSocket):
 
             validated_prompt = json.loads(validate_user_prompt(chat['message']))
             print('\n validate_prompt->',validated_prompt)
-            await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200,validated_prompt['ai_assistance_message']))
-            # # for testing purpose
+            await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200,validated_prompt['ai_assistance_message'],is_not_related_to_game=validated_prompt.get('is_not_related_to_game')))
+            # for testing purpose
             # await asyncio.sleep(3)
             # await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200,validated_prompt['ai_assistance_message']))
             # await asyncio.sleep(3)

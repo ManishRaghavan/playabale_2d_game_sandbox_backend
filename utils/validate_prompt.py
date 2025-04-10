@@ -14,14 +14,14 @@ def validate_user_prompt(message:str):
                           "status": 200,
                           "message": "<clarified prompt>",
                           "ai_assistance_message":"<explain what you have done to the user>"
-                           "is_not_related_to_game": true
+                           "is_not_related_to_game": "false" or "true"
                         }
                         
                         If not game-related:
                         {
                           "status": 404,
                           "ai_assistance_message": "Hey there! 😊 I'm excited to help — but could you please ask something related to a 2D game you'd like to build?"
-                          "is_not_related_to_game": false
+                          "is_not_related_to_game": "false" or "true"
                         }
                     """
                 },
