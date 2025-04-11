@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
 from starlette.websockets import WebSocket
 import json
-import asyncio
+from fastapi.concurrency import run_in_threadpool
+
 
 from utils.chat_history_utils import save_chat, SaveChatArgs, SaveFileArgs, save_files
 from utils.generate_code_util import generate_code_claude
@@ -29,7 +29,8 @@ async def generate_websocket_chat(websocket: WebSocket):
             data = await websocket.receive_text()
             chat = json.loads(data)
 
-            validated_prompt = json.loads(validate_user_prompt(chat['message']))
+            validated_prompt = await run_in_threadpool(validate_user_prompt, chat['message'])
+            validated_prompt = json.loads(validated_prompt)
             print('\n validate_prompt->',validated_prompt)
             await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200,validated_prompt['ai_assistance_message'],is_not_related_to_game=validated_prompt.get('is_not_related_to_game')))
             # for testing purpose
@@ -44,17 +45,22 @@ async def generate_websocket_chat(websocket: WebSocket):
 
 
             if validated_prompt['status'] == 200:
-                save_chat(SaveChatArgs(user_id=chat['user_id'], role='user' ,message=validated_prompt['message']))
-                save_files(SaveFileArgs(user_id=chat['user_id'],
-                                        files=json.dumps(validated_prompt['message'])))
-                claude_prompt_refined = json.loads(refined_prompt_for_claude(validated_prompt['message']))
+                # [TODO] will add save chat once we write the RAG and context provider logic
+                # save_chat(SaveChatArgs(user_id=chat['user_id'], role='user', message=validated_prompt['message']))
+                # save_files(SaveFileArgs(user_id=chat['user_id'],
+                #                         files=json.dumps(validated_prompt['message'])))
+
+                claude_prompt_refined = await run_in_threadpool(refined_prompt_for_claude, validated_prompt['message'])
+                claude_prompt_refined = json.loads(claude_prompt_refined)
                 print('\n claude_prompt_refined->', claude_prompt_refined)
                 await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200, claude_prompt_refined['ai_assistance_message']))
 
-                claude_code_generated = json.loads(generate_code_claude(claude_prompt_refined['message']))
+                claude_code_generated = await run_in_threadpool(generate_code_claude, claude_prompt_refined['message'])
+                claude_code_generated = json.loads(claude_code_generated)
+
                 print('\n claude_code_generated->', claude_code_generated)
                 await send_ws_chat_thinking_response(websocket, ai_assistance_payload(200, claude_code_generated['ai_assistance_message']))
-                gemini_validate_code = validate_generated_code_gemini(claude_code_generated)
+                gemini_validate_code = await run_in_threadpool(validate_generated_code_gemini, claude_code_generated)
                 print('\n gemini_validate_code->', gemini_validate_code)
                 if gemini_validate_code['status'] == 200:
                     #[TODO] will add save chat once we write the RAG and context provider logic
@@ -83,13 +89,13 @@ async def generate_websocket_chat(websocket: WebSocket):
         return handle_exception(e, "Failed to process.")
 
 @router.websocket('/ws/chat/edit')
-async def generate_websocket_chat(websocket: WebSocket):
+async def generate_websocket_chat_edit(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_text()
             print("edit triggered",data)
-            gemini_edited_code = edit_generated_code_gemini(data)
+            gemini_edited_code = await run_in_threadpool(edit_generated_code_gemini, data)
             await send_ws_chat_response(websocket,
                                         ai_assistance_payload(400, gemini_edited_code['ai_assistance_message']))
             #[TODO] will add save chat once we write the RAG and context provider logic
